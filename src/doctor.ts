@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { resolveAppConfig, type AppEnv } from "./config/env";
 import { CliError } from "./errors";
 import { DoctorResult, type DoctorCheck } from "./output/app-results";
@@ -32,7 +31,7 @@ export async function runDoctor(cwd: string, envName: AppEnv) {
     checks.push({
       name: "env",
       status: "pass",
-      message: `Loaded .env for ${envName}`,
+      message: `Resolved runtime configuration for ${envName}`,
     });
     checks.push({
       name: "api_id",
@@ -59,14 +58,6 @@ export async function runDoctor(cwd: string, envName: AppEnv) {
       ],
     });
   }
-
-  checks.push({
-    name: "public_key",
-    status: existsSync(config.publicKeyPath) ? "pass" : "warn",
-    message: existsSync(config.publicKeyPath)
-      ? `Public key file found at ${config.publicKeyPath}`
-      : `Public key file missing at ${config.publicKeyPath}`,
-  });
 
   checks.push({
     name: "state_dir",

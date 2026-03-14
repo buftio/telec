@@ -61,13 +61,11 @@ describe("createProgram", () => {
     };
 
     const program = createProgram(handlers);
-    await program.parseAsync(
-      ["bun", "telegram", "auth", "login", "--phone", "+447405644796", "--code", "70280"],
-      { from: "node" },
-    );
+    await program.parseAsync(["bun", "telegram", "auth", "login", "--phone", "+447405644796"], {
+      from: "node",
+    });
 
     expect(captured).toEqual({
-      code: "70280",
       env: "dev",
       output: "json",
       phone: "+447405644796",
@@ -187,5 +185,27 @@ describe("createProgram", () => {
       .find((command) => command.name() === "search")
       ?.helpInformation();
     expect(searchHelp).toMatch(/choices:\s+"chats",\s+"messages"/);
+  });
+
+  test("auth login help does not expose secret flags", () => {
+    const program = createProgram({
+      doctor: async () => {},
+      authLogin: async () => {},
+      authStatus: async () => {},
+      authReset: async () => {},
+      list: async () => {},
+      read: async () => {},
+      send: async () => {},
+      markRead: async () => {},
+      search: async () => {},
+    });
+
+    const loginHelp = program.commands
+      .find((command) => command.name() === "auth")
+      ?.commands.find((command) => command.name() === "login")
+      ?.helpInformation();
+
+    expect(loginHelp).not.toContain("--code");
+    expect(loginHelp).not.toContain("--password");
   });
 });

@@ -1,11 +1,14 @@
 import readline from "node:readline/promises";
+import { stdin, stdout } from "node:process";
 import { stdin as input, stdout as output } from "node:process";
 import { Command, InvalidArgumentError, Option } from "commander";
 import { printOutput } from "./output/format";
-import { loadEnvIntoProcess, resolveAppConfig, type AppEnv, type OutputMode } from "./config/env";
+import { resolveAppConfig, type AppEnv, type OutputMode } from "./config/env";
+import { prepareRuntimeEnv } from "./config/runtime-env";
 import { trashStatePaths } from "./config/state";
 import { runDoctor } from "./doctor";
 import { AuthResetResult } from "./output/app-results";
+import { CliError } from "./errors";
 import { FfiTdTransport } from "./tdlib/transport";
 import { TdlibClient, type PromptAdapter } from "./tdlib/client";
 import { TelegramService } from "./telegram/service";
@@ -21,8 +24,6 @@ type SharedCliOptions = SharedOptions & {
 
 type LoginOptions = SharedCliOptions & {
   phone?: string;
-  code?: string;
-  password?: string;
 };
 
 type ListOptions = SharedCliOptions & {
@@ -67,26 +68,30 @@ export interface CliHandlers {
 }
 
 class InteractivePrompt implements PromptAdapter {
-  private readonly rl = readline.createInterface({ input, output });
-
   constructor(private readonly answers: Record<string, string | undefined> = {}) {}
 
-  async ask(prompt: string) {
+  async ask(prompt: string, options?: { sensitive?: boolean }) {
     const key = prompt.toLowerCase();
     if (key.startsWith("phone number:") && this.answers.phone) {
       return this.answers.phone;
     }
-    if (key.startsWith("login code:") && this.answers.code) {
-      return this.answers.code;
+    if (options?.sensitive) {
+      return askSensitive(prompt);
     }
-    if (key.startsWith("2fa password:") && this.answers.password) {
-      return this.answers.password;
+    const rl = readline.createInterface({ input, output });
+    try {
+      return await rl.question(prompt);
+    } finally {
+      rl.close();
     }
-    return this.rl.question(prompt);
+  }
+
+  write(message: string) {
+    console.error(message);
   }
 
   close() {
-    this.rl.close();
+    return;
   }
 }
 
@@ -135,9 +140,10 @@ export function getDefaultEnv(argv = Bun.argv): AppEnv {
 
 async function withClient<T>(
   env: AppEnv,
+  prompt: InteractivePrompt,
   execute: (client: TdlibClient, service: TelegramService) => Promise<T>,
 ) {
-  loadEnvIntoProcess(process.cwd(), env);
+  await prepareRuntimeEnv(process.cwd(), env, { prompt });
   const config = resolveAppConfig(process.cwd(), env);
   const transport = new FfiTdTransport(config.tdjsonPath);
   const client = new TdlibClient(config, transport);
@@ -152,31 +158,40 @@ async function withClient<T>(
 
 export const defaultHandlers: CliHandlers = {
   async doctor(options) {
-    printOutput(options.output, await runDoctor(process.cwd(), options.env));
+    const prompt = new InteractivePrompt();
+    try {
+      await prepareRuntimeEnv(process.cwd(), options.env, { prompt });
+      printOutput(options.output, await runDoctor(process.cwd(), options.env));
+    } finally {
+      prompt.close();
+    }
   },
 
   async authLogin(options) {
-    await withClient(options.env, async (client, service) => {
-      const prompt = new InteractivePrompt({
-        phone: options.phone,
-        code: options.code,
-        password: options.password,
-      });
+    const prompt = new InteractivePrompt({
+      phone: options.phone,
+    });
 
-      try {
+    try {
+      await withClient(options.env, prompt, async (client, service) => {
         await client.ensureReady("interactive", prompt);
         printOutput(options.output, await service.getAuthStatus());
-      } finally {
-        prompt.close();
-      }
-    });
+      });
+    } finally {
+      prompt.close();
+    }
   },
 
   async authStatus(options) {
-    await withClient(options.env, async (client, service) => {
-      await client.ensureReady("status");
-      printOutput(options.output, await service.getAuthStatus());
-    });
+    const prompt = new InteractivePrompt();
+    try {
+      await withClient(options.env, prompt, async (client, service) => {
+        await client.ensureReady("status");
+        printOutput(options.output, await service.getAuthStatus());
+      });
+    } finally {
+      prompt.close();
+    }
   },
 
   async authReset(options) {
@@ -192,7 +207,7 @@ export const defaultHandlers: CliHandlers = {
   },
 
   async list(options) {
-    await withClient(options.env, async (client, service) => {
+    await withPromptedClient(options.env, async (client, service) => {
       await client.ensureReady("existing");
       printOutput(
         options.output,
@@ -205,7 +220,7 @@ export const defaultHandlers: CliHandlers = {
   },
 
   async read(options) {
-    await withClient(options.env, async (client, service) => {
+    await withPromptedClient(options.env, async (client, service) => {
       await client.ensureReady("existing");
       printOutput(
         options.output,
@@ -219,7 +234,7 @@ export const defaultHandlers: CliHandlers = {
   },
 
   async send(options) {
-    await withClient(options.env, async (client, service) => {
+    await withPromptedClient(options.env, async (client, service) => {
       await client.ensureReady("existing");
       printOutput(
         options.output,
@@ -232,7 +247,7 @@ export const defaultHandlers: CliHandlers = {
   },
 
   async markRead(options) {
-    await withClient(options.env, async (client, service) => {
+    await withPromptedClient(options.env, async (client, service) => {
       await client.ensureReady("existing");
       printOutput(
         options.output,
@@ -245,7 +260,7 @@ export const defaultHandlers: CliHandlers = {
   },
 
   async search(options) {
-    await withClient(options.env, async (client, service) => {
+    await withPromptedClient(options.env, async (client, service) => {
       await client.ensureReady("existing");
       printOutput(options.output, await service.search(options));
     });
@@ -275,8 +290,6 @@ export function createProgram(handlers: CliHandlers = defaultHandlers) {
     .command("login")
     .description("Login or register a Telegram account")
     .option("--phone <phone>", "phone number in international format")
-    .option("--code <code>", "login code to submit")
-    .option("--password <password>", "2FA password to submit")
     .action(async function () {
       await handlers.authLogin(resolveSharedOptions(this.optsWithGlobals<LoginOptions>()));
     });
@@ -351,7 +364,72 @@ export function createProgram(handlers: CliHandlers = defaultHandlers) {
 }
 
 export async function runCli(argv = Bun.argv) {
-  loadEnvIntoProcess(process.cwd());
   const program = createProgram();
   await program.parseAsync(argv);
+}
+
+async function withPromptedClient<T>(
+  env: AppEnv,
+  execute: (client: TdlibClient, service: TelegramService) => Promise<T>,
+) {
+  const prompt = new InteractivePrompt();
+  try {
+    return await withClient(env, prompt, execute);
+  } finally {
+    prompt.close();
+  }
+}
+
+async function askSensitive(prompt: string) {
+  if (!stdin.isTTY || !stdout.isTTY || typeof stdin.setRawMode !== "function") {
+    const rl = readline.createInterface({ input, output });
+    try {
+      return await rl.question(prompt);
+    } finally {
+      rl.close();
+    }
+  }
+
+  stdout.write(prompt);
+
+  return await new Promise<string>((resolve, reject) => {
+    const chunks: string[] = [];
+    const previousRawMode = stdin.isRaw;
+
+    const cleanup = () => {
+      stdin.off("data", onData);
+      stdin.setRawMode(previousRawMode);
+      stdin.pause();
+    };
+
+    const onData = (data: Buffer | string) => {
+      const text = data.toString("utf8");
+      for (const char of text) {
+        if (char === "\u0003") {
+          stdout.write("\n");
+          cleanup();
+          reject(new CliError("Prompt cancelled", 130));
+          return;
+        }
+
+        if (char === "\r" || char === "\n") {
+          stdout.write("\n");
+          cleanup();
+          resolve(chunks.join(""));
+          return;
+        }
+
+        if (char === "\u007f") {
+          chunks.pop();
+          continue;
+        }
+
+        chunks.push(char);
+      }
+    };
+
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.on("data", onData);
+  });
 }

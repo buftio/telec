@@ -308,7 +308,7 @@ export class TdlibClient {
             use_test_dc: this.config.useTestDc,
             database_directory: this.config.state.databaseDir,
             files_directory: this.config.state.filesDir,
-            database_encryption_key: "",
+            database_encryption_key: this.config.dbEncryptionKey,
             use_file_database: true,
             use_chat_info_database: true,
             use_message_database: true,

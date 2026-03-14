@@ -13,7 +13,6 @@ export function discoverTdjsonPath(explicitPath?: string): string {
   const candidates = [
     process.env.TDLIB_JSON_PATH,
     process.env.TDLIB_PATH ? path.join(process.env.TDLIB_PATH, libraryName) : undefined,
-    path.join(process.cwd(), ".vendor", "td-install", "lib", libraryName),
     `/opt/homebrew/opt/tdlib/lib/${libraryName}`,
     `/usr/local/opt/tdlib/lib/${libraryName}`,
   ].filter((value): value is string => Boolean(value));

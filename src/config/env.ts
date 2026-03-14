@@ -13,33 +13,12 @@ export interface AppConfig {
   envName: AppEnv;
   apiId: number;
   apiHash: string;
+  dbEncryptionKey: string;
   appTitle: string;
   appShortName: string;
-  dc?: string;
-  dcId?: number;
-  publicKeyPath: string;
-  publicKeyPem?: string;
   useTestDc: boolean;
   tdjsonPath?: string;
   state: ReturnType<typeof getStatePaths>;
-}
-
-function getScopedEnvFiles(cwd: string, envName: AppEnv) {
-  if (envName === "dev") {
-    return [path.join(cwd, ".env.dev"), path.join(cwd, ".env.test")];
-  }
-  return [path.join(cwd, `.env.${envName}`)];
-}
-
-function getDefaultPublicKeyPath(cwd: string, envName: AppEnv) {
-  const candidate = path.join(cwd, "config", "telegram", `${envName}.public.pem`);
-  if (existsSync(candidate)) {
-    return candidate;
-  }
-  if (envName === "dev") {
-    return path.join(cwd, "config", "telegram", "test.public.pem");
-  }
-  return candidate;
 }
 
 export function parseEnvFile(filePath: string): EnvMap {
@@ -76,20 +55,13 @@ export function parseEnvFile(filePath: string): EnvMap {
 
 export function loadEnvIntoProcess(
   cwd: string,
-  envName?: AppEnv,
+  _envName?: AppEnv,
   processEnv: NodeJS.ProcessEnv = process.env,
 ) {
-  const filePaths = [path.join(cwd, ".env")];
-  if (envName) {
-    filePaths.push(...getScopedEnvFiles(cwd, envName));
-  }
-
-  for (const filePath of filePaths) {
-    const parsed = parseEnvFile(filePath);
-    for (const [key, value] of Object.entries(parsed)) {
-      if (processEnv[key] === undefined) {
-        processEnv[key] = value;
-      }
+  const parsed = parseEnvFile(path.join(cwd, ".env"));
+  for (const [key, value] of Object.entries(parsed)) {
+    if (processEnv[key] === undefined) {
+      processEnv[key] = value;
     }
   }
 }
@@ -99,14 +71,8 @@ export function resolveAppConfig(
   envName: AppEnv,
   processEnv: NodeJS.ProcessEnv = process.env,
 ): AppConfig {
-  const baseEnv = parseEnvFile(path.join(cwd, ".env"));
-  const scopedEnv = Object.assign(
-    {},
-    ...getScopedEnvFiles(cwd, envName).map((filePath) => parseEnvFile(filePath)),
-  );
   const merged = {
-    ...baseEnv,
-    ...scopedEnv,
+    ...parseEnvFile(path.join(cwd, ".env")),
     ...Object.fromEntries(
       Object.entries(processEnv).filter(
         (entry): entry is [string, string] => typeof entry[1] === "string",
@@ -117,7 +83,9 @@ export function resolveAppConfig(
   const apiIdRaw = merged.TELEGRAM_APP_API_ID;
   const apiHash = merged.TELEGRAM_APP_API_HASH;
   if (!apiIdRaw || !apiHash) {
-    throw new CliError("Missing TELEGRAM_APP_API_ID or TELEGRAM_APP_API_HASH in .env");
+    throw new CliError(
+      "Missing TELEGRAM_APP_API_ID or TELEGRAM_APP_API_HASH. Run telec in an interactive terminal to save them in Keychain.",
+    );
   }
 
   const apiId = Number.parseInt(apiIdRaw, 10);
@@ -125,34 +93,21 @@ export function resolveAppConfig(
     throw new CliError("TELEGRAM_APP_API_ID must be a positive integer");
   }
 
-  const dcIdRaw = merged.TELEGRAM_APP_DC_ID;
-  let dcId: number | undefined;
-  if (dcIdRaw) {
-    const parsedDcId = Number.parseInt(dcIdRaw, 10);
-    if (!Number.isInteger(parsedDcId) || parsedDcId <= 0) {
-      throw new CliError("TELEGRAM_APP_DC_ID must be a positive integer");
-    }
-    dcId = parsedDcId;
+  const dbEncryptionKey = merged.TDLIB_DATABASE_ENCRYPTION_KEY;
+  if (!dbEncryptionKey) {
+    throw new CliError(
+      "Missing TDLIB_DATABASE_ENCRYPTION_KEY. Run telec in an interactive terminal to create one.",
+    );
   }
-
-  const defaultKeyPath = getDefaultPublicKeyPath(cwd, envName);
-  const configuredKeyPath = merged.TELEGRAM_APP_PUBLIC_KEY_PATH
-    ? path.resolve(cwd, merged.TELEGRAM_APP_PUBLIC_KEY_PATH)
-    : defaultKeyPath;
 
   return {
     cwd,
     envName,
     apiId,
     apiHash,
-    appTitle: merged.TELEGRAM_APP_TITLE ?? "Telegram CLI",
-    appShortName: merged.TELEGRAM_APP_SHORT_NAME ?? "telegram-cli",
-    dc: merged.TELEGRAM_APP_DC,
-    dcId,
-    publicKeyPath: configuredKeyPath,
-    publicKeyPem: existsSync(configuredKeyPath)
-      ? readFileSync(configuredKeyPath, "utf8")
-      : undefined,
+    dbEncryptionKey,
+    appTitle: "Telegram CLI",
+    appShortName: "telec",
     useTestDc: envName !== "prod",
     tdjsonPath: merged.TDLIB_JSON_PATH,
     state: getStatePaths(envName),
