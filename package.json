@@ -1,0 +1,37 @@
+{
+  "name": "tgc",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "telec": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "telec": "bun run ./src/cli.ts",
+    "test": "bun test",
+    "check": "run-p check:lint check:fmt check:type",
+    "check:lint": "oxlint --tsconfig ./tsconfig.json --deny-warnings src tests",
+    "check:fmt": "oxfmt --check .",
+    "check:type": "tsgo --project ./tsconfig.json --noEmit",
+    "fix": "run-s fix:lint fix:fmt",
+    "fix:lint": "oxlint --tsconfig ./tsconfig.json --fix src tests",
+    "fix:fmt": "oxfmt --write .",
+    "lint": "bun run check:lint",
+    "lint:fix": "bun run fix:lint",
+    "format": "bun run fix:fmt",
+    "format:check": "bun run check:fmt",
+    "build": "bun build ./src/cli.ts --compile --minify --outfile ./dist/telec",
+    "build:debug": "bun build ./src/cli.ts --compile --outfile ./dist/telec",
+    "build:mac": "bun build ./src/cli.ts --compile --target=bun-darwin-arm64 --minify --outfile ./dist/telec"
+  },
+  "dependencies": {
+    "commander": "^14.0.3"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@typescript/native-preview": "^7.0.0-dev.20260314.1",
+    "npm-run-all": "^4.1.5",
+    "oxfmt": "^0.40.0",
+    "oxlint": "^1.55.0"
+  }
+}
