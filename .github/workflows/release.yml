@@ -77,6 +77,9 @@ jobs:
       - preflight
       - build
     runs-on: macos-14
+    env:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -109,11 +112,8 @@ jobs:
             .local/releases/${{ github.ref_name }}/checksums.txt
             .local/releases/${{ github.ref_name }}/telec.rb
       - run: npm publish --access public --provenance
-      - if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+      - if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
         shell: bash
-        env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
         run: |
           set -euo pipefail
           source scripts/release-config.sh
