@@ -1,4 +1,4 @@
-# tgc
+# telec
 
 Scriptable Telegram CLI on top of TDLib.
 
@@ -53,7 +53,7 @@ TDLIB_JSON_PATH=/opt/homebrew/opt/tdlib/lib/libtdjson.dylib
 
 If `TDLIB_DATABASE_ENCRYPTION_KEY` is not provided, `telec` will create one and store it in Keychain on first interactive run.
 
-- TDLib session data is stored under `~/Library/Application Support/tgc/<env>/`.
+- TDLib session data is stored under `~/Library/Application Support/telec/<env>/`.
 
 ## Build
 
@@ -62,3 +62,17 @@ bun run build
 ```
 
 The compiled binary still requires TDLib to be installed, or `TDLIB_JSON_PATH` to point at `libtdjson`.
+
+## File Attachments
+
+Send a local file to a chat:
+
+```sh
+bun run telec send-file -c saved --file-path /absolute/path/to/file.pdf --caption "optional"
+```
+
+Download an attachment from a message to a chosen path:
+
+```sh
+bun run telec download -c saved --message-id 123456 --output-path /absolute/path/to/file.pdf
+```

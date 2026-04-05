@@ -2,7 +2,7 @@ import os from "node:os";
 import { randomUUID } from "node:crypto";
 import { CliError, TdlibError } from "../errors";
 import type { AppConfig } from "../config/env";
-import type { TdChat, TdMessage, TdObject, TdUser } from "./types";
+import type { TdChat, TdFile, TdMessage, TdObject, TdUser } from "./types";
 import type { TdTransport } from "./transport";
 
 export interface PromptAdapter {
@@ -25,6 +25,8 @@ export class TdlibClient {
   private readonly config: AppConfig;
   private readonly chats = new Map<number, TdChat>();
   private readonly users = new Map<number, TdUser>();
+  private readonly sentMessages = new Map<string, TdMessage>();
+  private readonly failedMessages = new Map<string, { code: number; message: string }>();
   private authState: string | null = null;
   private isOpen = false;
 
@@ -119,6 +121,60 @@ export class TdlibClient {
     });
     this.users.set(user.id, user);
     return user;
+  }
+
+  async createPrivateChat(userId: number) {
+    const chat = await this.request<TdChat>({
+      "@type": "createPrivateChat",
+      user_id: userId,
+      force: false,
+    });
+    this.chats.set(chat.id, chat);
+    return chat;
+  }
+
+  async getMessage(chatId: number, messageId: number) {
+    return this.request<TdMessage>({
+      "@type": "getMessage",
+      chat_id: chatId,
+      message_id: messageId,
+    });
+  }
+
+  async downloadFile(fileId: number) {
+    return this.request<TdFile>({
+      "@type": "downloadFile",
+      file_id: fileId,
+      priority: 32,
+      offset: 0,
+      limit: 0,
+      synchronous: true,
+    });
+  }
+
+  async waitForMessageSent(chatId: number, messageId: number, timeoutMs = 120_000) {
+    const key = `${chatId}:${messageId}`;
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      const sent = this.sentMessages.get(key);
+      if (sent) {
+        this.sentMessages.delete(key);
+        this.failedMessages.delete(key);
+        return sent;
+      }
+
+      const failed = this.failedMessages.get(key);
+      if (failed) {
+        this.sentMessages.delete(key);
+        this.failedMessages.delete(key);
+        throw new TdlibError(failed.code, failed.message);
+      }
+
+      this.receiveAndProcess(0.5);
+    }
+
+    throw new CliError(`Timed out waiting for message ${messageId} to finish sending`);
   }
 
   async listChats(chatList: TdObject | null, limit: number) {
@@ -255,9 +311,42 @@ export class TdlibClient {
       case "updateChatIsMarkedAsUnread":
         this.mergeChatUpdate(object);
         break;
+      case "updateMessageSendSucceeded":
+        this.mergeSendSucceeded(object);
+        break;
+      case "updateMessageSendFailed":
+        this.mergeSendFailed(object);
+        break;
       default:
         break;
     }
+  }
+
+  private mergeSendSucceeded(update: TdObject) {
+    const oldMessageId = Number(update.old_message_id);
+    const message =
+      typeof update.message === "object" && update.message ? (update.message as TdMessage) : null;
+    if (!Number.isFinite(oldMessageId) || !message) {
+      return;
+    }
+
+    this.sentMessages.set(`${message.chat_id}:${oldMessageId}`, message);
+  }
+
+  private mergeSendFailed(update: TdObject) {
+    const chatId = Number(update.chat_id);
+    const oldMessageId = Number(update.old_message_id);
+    if (!Number.isFinite(chatId) || !Number.isFinite(oldMessageId)) {
+      return;
+    }
+
+    this.failedMessages.set(`${chatId}:${oldMessageId}`, {
+      code: Number(update.error_code) || 500,
+      message:
+        typeof update.error_message === "string" && update.error_message
+          ? update.error_message
+          : "Message sending failed",
+    });
   }
 
   private mergeChatUpdate(update: TdObject) {

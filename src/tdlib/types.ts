@@ -25,6 +25,20 @@ export interface TdMessage extends TdObject {
   content?: TdObject;
 }
 
+export interface TdFileLocal extends TdObject {
+  "@type": "localFile";
+  path?: string;
+  is_downloading_completed?: boolean;
+}
+
+export interface TdFile extends TdObject {
+  "@type": "file";
+  id: number;
+  size?: number;
+  expected_size?: number;
+  local?: TdFileLocal;
+}
+
 export interface TdUser extends TdObject {
   "@type": "user";
   id: number;

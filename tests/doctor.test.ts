@@ -6,7 +6,7 @@ import { runDoctor } from "../src/doctor";
 
 describe("runDoctor", () => {
   test("reports invalid credentials clearly", async () => {
-    const cwd = mkdtempSync(path.join(os.tmpdir(), "tgc-doctor-"));
+    const cwd = mkdtempSync(path.join(os.tmpdir(), "telec-doctor-"));
     writeFileSync(
       path.join(cwd, ".env"),
       [

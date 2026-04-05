@@ -14,7 +14,9 @@ describe("createProgram", () => {
         captured = options;
       },
       send: async () => {},
+      sendFile: async () => {},
       markRead: async () => {},
+      download: async () => {},
       search: async () => {},
     };
 
@@ -56,7 +58,9 @@ describe("createProgram", () => {
       list: async () => {},
       read: async () => {},
       send: async () => {},
+      sendFile: async () => {},
       markRead: async () => {},
+      download: async () => {},
       search: async () => {},
     };
 
@@ -77,7 +81,7 @@ describe("createProgram", () => {
   });
 
   test("defaults to prod for packaged binaries", () => {
-    expect(getDefaultEnv(["/Users/buft/bin/tgc"] as any)).toBe("prod");
+    expect(getDefaultEnv(["/Users/buft/bin/telec"] as any)).toBe("prod");
   });
 
   test("routes search options through commander", async () => {
@@ -90,7 +94,9 @@ describe("createProgram", () => {
       list: async () => {},
       read: async () => {},
       send: async () => {},
+      sendFile: async () => {},
       markRead: async () => {},
+      download: async () => {},
       search: async (options) => {
         captured = options;
       },
@@ -123,6 +129,93 @@ describe("createProgram", () => {
     });
   });
 
+  test("routes send-file options through commander", async () => {
+    let captured: Record<string, unknown> | undefined;
+    const handlers: CliHandlers = {
+      doctor: async () => {},
+      authLogin: async () => {},
+      authStatus: async () => {},
+      authReset: async () => {},
+      list: async () => {},
+      read: async () => {},
+      send: async () => {},
+      sendFile: async (options) => {
+        captured = options;
+      },
+      markRead: async () => {},
+      download: async () => {},
+      search: async () => {},
+    };
+
+    const program = createProgram(handlers);
+    await program.parseAsync(
+      [
+        "bun",
+        "telec",
+        "send-file",
+        "-c",
+        "saved",
+        "--file-path",
+        "/tmp/demo.pdf",
+        "--caption",
+        "hi",
+      ],
+      { from: "node" },
+    );
+
+    expect(captured).toEqual({
+      env: "dev",
+      output: "json",
+      conversationId: "saved",
+      filePath: "/tmp/demo.pdf",
+      caption: "hi",
+    });
+  });
+
+  test("routes download options through commander", async () => {
+    let captured: Record<string, unknown> | undefined;
+    const handlers: CliHandlers = {
+      doctor: async () => {},
+      authLogin: async () => {},
+      authStatus: async () => {},
+      authReset: async () => {},
+      list: async () => {},
+      read: async () => {},
+      send: async () => {},
+      sendFile: async () => {},
+      markRead: async () => {},
+      download: async (options) => {
+        captured = options;
+      },
+      search: async () => {},
+    };
+
+    const program = createProgram(handlers);
+    await program.parseAsync(
+      [
+        "bun",
+        "telec",
+        "--compact",
+        "download",
+        "-c",
+        "saved",
+        "--message-id",
+        "42",
+        "--output-path",
+        "/tmp/result.pdf",
+      ],
+      { from: "node" },
+    );
+
+    expect(captured).toEqual({
+      env: "dev",
+      output: "compact",
+      conversationId: "saved",
+      messageId: 42,
+      outputPath: "/tmp/result.pdf",
+    });
+  });
+
   test("maps --compact to compact output", async () => {
     let captured: Record<string, unknown> | undefined;
     const handlers: CliHandlers = {
@@ -135,7 +228,9 @@ describe("createProgram", () => {
       },
       read: async () => {},
       send: async () => {},
+      sendFile: async () => {},
       markRead: async () => {},
+      download: async () => {},
       search: async () => {},
     };
 
@@ -158,7 +253,9 @@ describe("createProgram", () => {
       list: async () => {},
       read: async () => {},
       send: async () => {},
+      sendFile: async () => {},
       markRead: async () => {},
+      download: async () => {},
       search: async () => {},
     });
 
@@ -177,7 +274,9 @@ describe("createProgram", () => {
       list: async () => {},
       read: async () => {},
       send: async () => {},
+      sendFile: async () => {},
       markRead: async () => {},
+      download: async () => {},
       search: async () => {},
     });
 
@@ -196,7 +295,9 @@ describe("createProgram", () => {
       list: async () => {},
       read: async () => {},
       send: async () => {},
+      sendFile: async () => {},
       markRead: async () => {},
+      download: async () => {},
       search: async () => {},
     });
 

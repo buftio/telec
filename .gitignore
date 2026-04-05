@@ -6,3 +6,4 @@ node_modules/
 .vendor/
 dist/
 .local/
+.DS_Store

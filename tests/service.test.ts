@@ -1,3 +1,6 @@
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, test } from "bun:test";
 import { TelegramService } from "../src/telegram/service";
 
@@ -49,6 +52,75 @@ class MockClient {
     };
   }
 
+  async createPrivateChat(userId: number) {
+    return {
+      "@type": "chat",
+      id: userId,
+      title: "Saved Messages",
+      unread_count: 0,
+      type: { "@type": "chatTypePrivate" },
+    };
+  }
+
+  async getMessage(chatId: number, messageId: number) {
+    return {
+      "@type": "message",
+      id: messageId,
+      chat_id: chatId,
+      date: 4000,
+      is_outgoing: true,
+      content: {
+        "@type": "messageDocument",
+        document: {
+          "@type": "document",
+          file_name: "report.pdf",
+          mime_type: "application/pdf",
+          document: {
+            "@type": "file",
+            id: 700,
+            local: {
+              "@type": "localFile",
+              path: "/tmp/source-report.pdf",
+            },
+          },
+        },
+      },
+    };
+  }
+
+  async downloadFile(fileId: number) {
+    return {
+      "@type": "file",
+      id: fileId,
+      local: {
+        "@type": "localFile",
+        path: "/tmp/source-report.pdf",
+      },
+    };
+  }
+
+  async waitForMessageSent(chatId: number, messageId: number) {
+    return {
+      "@type": "message",
+      id: messageId + 1,
+      chat_id: chatId,
+      date: 1236,
+      is_outgoing: true,
+      content: {
+        "@type": "messageDocument",
+        document: {
+          "@type": "document",
+          file_name: "demo.pdf",
+          mime_type: "application/pdf",
+          document: {
+            "@type": "file",
+            id: 701,
+          },
+        },
+      },
+    };
+  }
+
   async getChatHistory(chatId: number, limit: number) {
     return {
       "@type": "messages",
@@ -71,6 +143,37 @@ class MockClient {
 
   async request(payload: Record<string, unknown>) {
     if (payload["@type"] === "sendMessage") {
+      const content = payload.input_message_content as any;
+      if (content["@type"] === "inputMessageDocument") {
+        return {
+          "@type": "message",
+          id: 1001,
+          chat_id: payload.chat_id,
+          date: 1235,
+          is_outgoing: true,
+          sending_state: {
+            "@type": "messageSendingStatePending",
+            sending_id: 0,
+          },
+          content: {
+            "@type": "messageDocument",
+            caption: {
+              "@type": "formattedText",
+              text: content.caption.text as string,
+            },
+            document: {
+              "@type": "document",
+              file_name: "demo.pdf",
+              mime_type: "application/pdf",
+              document: {
+                "@type": "file",
+                id: 701,
+              },
+            },
+          },
+        };
+      }
+
       return {
         "@type": "message",
         id: 999,
@@ -401,5 +504,77 @@ describe("TelegramService", () => {
     expect(full.messages).toHaveLength(3);
     expect(full.messages.map((message) => message.id)).toEqual([3, 2, 1]);
     expect(full.next_cursor).toBeNull();
+  });
+
+  test("sends files to saved messages", async () => {
+    const service = new TelegramService(new MockClient() as any, "test");
+    const response = await service.sendFile({
+      conversationId: "saved",
+      filePath: "/tmp/demo.pdf",
+      caption: "hello",
+    });
+
+    const full = response.toFull();
+    expect(full.conversation.chat_id).toBe(1);
+    expect(full.file.file_name).toBe("demo.pdf");
+    expect(full.file.caption).toBe("hello");
+    expect(full.message.id).toBe(1002);
+    expect(full.message.text).toBe("messageDocument");
+  });
+
+  test("downloads a document attachment to the requested path", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "telec-download-"));
+    const sourcePath = path.join(tempDir, "source-report.pdf");
+    const outputPath = path.join(tempDir, "copied-report.pdf");
+    await writeFile(sourcePath, "pdf-data");
+
+    const client = new MockClient();
+    client.getMessage = async (chatId: number, messageId: number) => ({
+      "@type": "message",
+      id: messageId,
+      chat_id: chatId,
+      date: 4000,
+      is_outgoing: true,
+      content: {
+        "@type": "messageDocument",
+        document: {
+          "@type": "document",
+          file_name: "report.pdf",
+          mime_type: "application/pdf",
+          document: {
+            "@type": "file",
+            id: 700,
+            local: {
+              "@type": "localFile",
+              path: sourcePath,
+            },
+          },
+        },
+      },
+    });
+    client.downloadFile = async (fileId: number) => ({
+      "@type": "file",
+      id: fileId,
+      local: {
+        "@type": "localFile",
+        path: sourcePath,
+      },
+    });
+
+    try {
+      const service = new TelegramService(client as any, "test");
+      const response = await service.downloadFile({
+        conversationId: "saved",
+        messageId: 55,
+        outputPath,
+      });
+
+      const full = response.toFull();
+      expect(full.file.file_id).toBe(700);
+      expect(full.file.saved_path).toBe(outputPath);
+      expect(await readFile(outputPath, "utf8")).toBe("pdf-data");
+    } finally {
+      await rm(tempDir, { force: true, recursive: true });
+    }
   });
 });

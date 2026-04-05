@@ -1,12 +1,12 @@
-import { mkdirSync } from "node:fs";
 import { existsSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { CliError } from "../errors";
 
 export function getStatePaths(envName: string) {
-  const baseDir = path.join(os.homedir(), "Library", "Application Support", "tgc", envName);
+  const baseDir = path.join(os.homedir(), "Library", "Application Support", "telec", envName);
   const databaseDir = path.join(baseDir, "tdlib-db");
   const filesDir = path.join(baseDir, "tdlib-files");
 

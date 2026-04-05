@@ -42,9 +42,21 @@ type SendOptions = SharedCliOptions & {
   text: string;
 };
 
+type SendFileOptions = SharedCliOptions & {
+  conversationId: string;
+  filePath: string;
+  caption?: string;
+};
+
 type MarkReadOptions = SharedCliOptions & {
   conversationId: string;
   messageId?: number;
+};
+
+type DownloadOptions = SharedCliOptions & {
+  conversationId: string;
+  messageId: number;
+  outputPath?: string;
 };
 
 type SearchOptions = SharedCliOptions & {
@@ -63,7 +75,9 @@ export interface CliHandlers {
   list(options: ListOptions): Promise<void>;
   read(options: ReadOptions): Promise<void>;
   send(options: SendOptions): Promise<void>;
+  sendFile(options: SendFileOptions): Promise<void>;
   markRead(options: MarkReadOptions): Promise<void>;
+  download(options: DownloadOptions): Promise<void>;
   search(options: SearchOptions): Promise<void>;
 }
 
@@ -246,6 +260,20 @@ export const defaultHandlers: CliHandlers = {
     });
   },
 
+  async sendFile(options) {
+    await withPromptedClient(options.env, async (client, service) => {
+      await client.ensureReady("existing");
+      printOutput(
+        options.output,
+        await service.sendFile({
+          conversationId: options.conversationId,
+          filePath: options.filePath,
+          caption: options.caption,
+        }),
+      );
+    });
+  },
+
   async markRead(options) {
     await withPromptedClient(options.env, async (client, service) => {
       await client.ensureReady("existing");
@@ -254,6 +282,20 @@ export const defaultHandlers: CliHandlers = {
         await service.markRead({
           conversationId: options.conversationId,
           messageId: options.messageId,
+        }),
+      );
+    });
+  },
+
+  async download(options) {
+    await withPromptedClient(options.env, async (client, service) => {
+      await client.ensureReady("existing");
+      printOutput(
+        options.output,
+        await service.downloadFile({
+          conversationId: options.conversationId,
+          messageId: options.messageId,
+          outputPath: options.outputPath,
         }),
       );
     });
@@ -337,12 +379,36 @@ export function createProgram(handlers: CliHandlers = defaultHandlers) {
     });
 
   program
+    .command("send-file")
+    .description("Send a file")
+    .requiredOption("-c, --conversation-id <conversationId>", "chat id or selector")
+    .requiredOption("--file-path <filePath>", "local file path")
+    .option("--caption <caption>", "file caption")
+    .action(async function () {
+      await handlers.sendFile(resolveSharedOptions(this.optsWithGlobals<SendFileOptions>()));
+    });
+
+  program
     .command("mark-read")
     .description("Mark a chat as read")
     .requiredOption("-c, --conversation-id <conversationId>", "chat id or selector")
     .option("--message-id <messageId>", "single message id to mark read", parseInteger)
     .action(async function () {
       await handlers.markRead(resolveSharedOptions(this.optsWithGlobals<MarkReadOptions>()));
+    });
+
+  program
+    .command("download")
+    .description("Download a file from a message")
+    .requiredOption("-c, --conversation-id <conversationId>", "chat id or selector")
+    .requiredOption(
+      "--message-id <messageId>",
+      "message id containing the attachment",
+      parseInteger,
+    )
+    .option("--output-path <outputPath>", "destination file path")
+    .action(async function () {
+      await handlers.download(resolveSharedOptions(this.optsWithGlobals<DownloadOptions>()));
     });
 
   program

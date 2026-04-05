@@ -58,10 +58,35 @@ export interface SendMessagePayload {
   message: NormalizedMessage;
 }
 
+export interface SendFilePayload {
+  env: string;
+  conversation: NormalizedChat;
+  message: NormalizedMessage;
+  file: {
+    path: string;
+    file_name: string;
+    caption: string;
+  };
+}
+
 export interface MarkReadPayload {
   env: string;
   conversation: NormalizedChat;
   message_ids: number[];
+}
+
+export interface DownloadFilePayload {
+  env: string;
+  conversation: NormalizedChat;
+  message: NormalizedMessage;
+  file: {
+    file_id: number;
+    file_name: string | null;
+    kind: string;
+    mime_type: string | null;
+    source_path: string;
+    saved_path: string;
+  };
 }
 
 function normalizeInline(value: unknown): string {
@@ -261,6 +286,23 @@ export class SendMessageResult implements RenderableResult<SendMessagePayload> {
   }
 }
 
+export class SendFileResult implements RenderableResult<SendFilePayload> {
+  constructor(private readonly payload: SendFilePayload) {}
+
+  toFull() {
+    return this.payload;
+  }
+
+  toCompact() {
+    return [
+      `send-file | env=${this.payload.env}`,
+      ...compactConversation(this.payload.conversation),
+      `file | name=${normalizeInline(this.payload.file.file_name) || "-"} | path=${this.payload.file.path} | caption=${normalizeInline(this.payload.file.caption) || "-"}`,
+      `message | ${compactMessage(this.payload.message)}`,
+    ].join("\n");
+  }
+}
+
 export class MarkReadResult implements RenderableResult<MarkReadPayload> {
   constructor(private readonly payload: MarkReadPayload) {}
 
@@ -273,6 +315,23 @@ export class MarkReadResult implements RenderableResult<MarkReadPayload> {
       `mark-read | env=${this.payload.env}`,
       ...compactConversation(this.payload.conversation),
       `message_ids=${this.payload.message_ids.length > 0 ? this.payload.message_ids.join(",") : "-"}`,
+    ].join("\n");
+  }
+}
+
+export class DownloadFileResult implements RenderableResult<DownloadFilePayload> {
+  constructor(private readonly payload: DownloadFilePayload) {}
+
+  toFull() {
+    return this.payload;
+  }
+
+  toCompact() {
+    return [
+      `download | env=${this.payload.env}`,
+      ...compactConversation(this.payload.conversation),
+      `file | kind=${this.payload.file.kind} | file_id=${this.payload.file.file_id} | name=${normalizeInline(this.payload.file.file_name) || "-"} | saved_path=${this.payload.file.saved_path}`,
+      `message | ${compactMessage(this.payload.message)}`,
     ].join("\n");
   }
 }

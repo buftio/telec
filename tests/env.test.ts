@@ -6,7 +6,7 @@ import { loadEnvIntoProcess } from "../src/config/env";
 
 describe("loadEnvIntoProcess", () => {
   test("loads .env values into process env without overwriting existing values", () => {
-    const cwd = mkdtempSync(path.join(os.tmpdir(), "tgc-env-"));
+    const cwd = mkdtempSync(path.join(os.tmpdir(), "telec-env-"));
     const fakeEnv: NodeJS.ProcessEnv = {
       TELEGRAM_APP_API_HASH: "keep-me",
     };

@@ -38,7 +38,7 @@ class FakePrompt {
 
 describe("prepareRuntimeEnv", () => {
   test("loads credentials from keychain and creates a db key when needed", async () => {
-    const cwd = mkdtempSync(path.join(os.tmpdir(), "tgc-runtime-"));
+    const cwd = mkdtempSync(path.join(os.tmpdir(), "telec-runtime-"));
     const processEnv: NodeJS.ProcessEnv = {};
     const store = new MemoryStore();
     store.set("telegram-api-id", "12345");
@@ -62,7 +62,7 @@ describe("prepareRuntimeEnv", () => {
   });
 
   test("prompts once and stores fresh credentials", async () => {
-    const cwd = mkdtempSync(path.join(os.tmpdir(), "tgc-runtime-"));
+    const cwd = mkdtempSync(path.join(os.tmpdir(), "telec-runtime-"));
     const processEnv: NodeJS.ProcessEnv = {};
     const store = new MemoryStore();
     const prompt = new FakePrompt(["98765", "prompted-hash"]);
@@ -86,7 +86,7 @@ describe("prepareRuntimeEnv", () => {
   });
 
   test("replaces malformed stored db keys with a valid base64 key", async () => {
-    const cwd = mkdtempSync(path.join(os.tmpdir(), "tgc-runtime-"));
+    const cwd = mkdtempSync(path.join(os.tmpdir(), "telec-runtime-"));
     const processEnv: NodeJS.ProcessEnv = {
       TELEGRAM_APP_API_ID: "12345",
       TELEGRAM_APP_API_HASH: "env-hash",
