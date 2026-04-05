@@ -1,11 +1,36 @@
 {
   "name": "telec",
   "version": "0.1.0",
-  "private": true,
-  "bin": {
-    "telec": "./src/cli.ts"
+  "description": "Scriptable Telegram CLI on top of TDLib.",
+  "keywords": [
+    "cli",
+    "messaging",
+    "tdlib",
+    "telegram"
+  ],
+  "homepage": "https://github.com/buftio/telec#readme",
+  "bugs": {
+    "url": "https://github.com/buftio/telec/issues"
   },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/buftio/telec.git"
+  },
+  "bin": {
+    "telec": "bin/telec.js"
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "bin/telec.js",
+    "dist/telec-darwin-arm64",
+    "dist/telec-linux-x64"
+  ],
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "telec": "bun run ./src/cli.ts",
     "test": "bun test",
@@ -20,9 +45,17 @@
     "lint:fix": "bun run fix:lint",
     "format": "bun run fix:fmt",
     "format:check": "bun run check:fmt",
-    "build": "bun build ./src/cli.ts --compile --minify --outfile ./dist/telec",
+    "build": "bun run build:dev",
+    "build:dev": "bun build ./src/cli.ts --compile --minify --outfile ./dist/telec",
     "build:debug": "bun build ./src/cli.ts --compile --outfile ./dist/telec",
-    "build:mac": "bun build ./src/cli.ts --compile --target=bun-darwin-arm64 --minify --outfile ./dist/telec"
+    "build:mac": "bun run build:darwin-arm64",
+    "build:darwin-arm64": "bun run ./scripts/build-release-target.mjs darwin-arm64",
+    "build:linux-x64": "bun run ./scripts/build-release-target.mjs linux-x64",
+    "build:release": "run-s build:darwin-arm64 build:linux-x64",
+    "package:release": "bun run ./scripts/package-release-assets.mjs",
+    "formula:release": "bun run ./scripts/render-homebrew-formula.mjs",
+    "validate:homebrew": "bash ./scripts/validate-homebrew-formula.sh",
+    "release:prepare": "run-s build:release package:release formula:release"
   },
   "dependencies": {
     "commander": "^14.0.3"
@@ -33,5 +66,8 @@
     "npm-run-all": "^4.1.5",
     "oxfmt": "^0.40.0",
     "oxlint": "^1.55.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

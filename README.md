@@ -4,19 +4,47 @@ Scriptable Telegram CLI on top of TDLib.
 
 ## Install
 
-1. Install TDLib on macOS:
+### Homebrew
+
+```sh
+brew tap buftio/tap
+brew install telec
+```
+
+### npm
+
+```sh
+npm install -g telec
+```
+
+or:
+
+```sh
+npx telec --help
+```
+
+### Runtime dependency
+
+Install TDLib first:
 
 ```sh
 brew install tdlib
 ```
 
-2. Install dependencies:
+Supported prebuilt targets today:
+
+- macOS arm64
+- Linux x64
+
+## Development
+
+1. Install dependencies:
 
 ```sh
 bun install
 ```
 
-3. Run the CLI:
+2. Run the CLI:
 
 ```sh
 bun run telec --help
@@ -61,7 +89,25 @@ If `TDLIB_DATABASE_ENCRYPTION_KEY` is not provided, `telec` will create one and 
 bun run build
 ```
 
-The compiled binary still requires TDLib to be installed, or `TDLIB_JSON_PATH` to point at `libtdjson`.
+Release binaries:
+
+```sh
+bun run build:release
+```
+
+Package release assets and render the Homebrew formula:
+
+```sh
+bun run release:prepare
+```
+
+Validate the generated Homebrew formula locally:
+
+```sh
+bun run validate:homebrew
+```
+
+The compiled binaries still require TDLib to be installed, or `TDLIB_JSON_PATH` to point at `libtdjson`.
 
 ## File Attachments
 

@@ -1,12 +1,35 @@
-import { existsSync } from "node:fs";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { CliError } from "../errors";
 
+function getHomeDirectory() {
+  return process.env.HOME || os.homedir();
+}
+
+function getTrashDir() {
+  return path.join(getHomeDirectory(), ".Trash");
+}
+
+function getTrashDestination(target: string) {
+  const trashDir = getTrashDir();
+  const targetName = path.basename(target);
+  let nextPath = path.join(trashDir, targetName);
+
+  if (!existsSync(nextPath)) {
+    return nextPath;
+  }
+
+  for (let index = 1; ; index += 1) {
+    nextPath = path.join(trashDir, `${targetName} ${index}`);
+    if (!existsSync(nextPath)) {
+      return nextPath;
+    }
+  }
+}
+
 export function getStatePaths(envName: string) {
-  const baseDir = path.join(os.homedir(), "Library", "Application Support", "telec", envName);
+  const baseDir = path.join(getHomeDirectory(), "Library", "Application Support", "telec", envName);
   const databaseDir = path.join(baseDir, "tdlib-db");
   const filesDir = path.join(baseDir, "tdlib-files");
 
@@ -27,13 +50,15 @@ export function trashStatePaths(envName: string) {
     return state;
   }
 
-  const result = spawnSync("trash", targets, {
-    stdio: ["ignore", "pipe", "pipe"],
-    encoding: "utf8",
-  });
+  mkdirSync(getTrashDir(), { recursive: true });
 
-  if (result.status !== 0) {
-    throw new CliError(result.stderr.trim() || "Failed to move TDLib state to Trash");
+  try {
+    for (const target of targets) {
+      renameSync(target, getTrashDestination(target));
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to move TDLib state to Trash";
+    throw new CliError(message);
   }
 
   return state;
