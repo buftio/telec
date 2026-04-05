@@ -1,6 +1,6 @@
 {
   "name": "telec",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Scriptable Telegram CLI on top of TDLib.",
   "keywords": [
     "cli",
