@@ -23,14 +23,12 @@ const packageJson = JSON.parse(readFileSync(path.join(repoRoot, "package.json"),
 const version = packageJson.version;
 const tagName = `v${version}`;
 const releaseDir = path.join(repoRoot, ".local", "releases", tagName);
-const repositorySlug = process.env.GITHUB_REPOSITORY || "buftio/telec";
 
 mkdirSync(releaseDir, { recursive: true });
 
 const checksums = {
   version,
   tagName,
-  repo: repositorySlug,
   targets: {},
 };
 

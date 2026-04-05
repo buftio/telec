@@ -123,17 +123,17 @@ jobs:
 
           git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${TAP_REPO}.git" "$TAP_DIR"
           mkdir -p "$TAP_DIR/Formula"
-          bun run formula:release -- --output "$TAP_DIR/Formula/telec.rb"
+          cp ".local/releases/${GITHUB_REF_NAME}/${TELEC_APP_NAME}.rb" "$TAP_DIR/Formula/${TELEC_APP_NAME}.rb"
 
           cd "$TAP_DIR"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet -- "Formula/telec.rb"; then
+          if git diff --quiet -- "Formula/${TELEC_APP_NAME}.rb"; then
             echo "Homebrew formula already up to date."
             exit 0
           fi
 
-          git add "Formula/telec.rb"
+          git add "Formula/${TELEC_APP_NAME}.rb"
           git commit -m "formula(telec): update to ${GITHUB_REF_NAME}"
           git push

@@ -10,7 +10,6 @@ if ! command -v brew >/dev/null 2>&1; then
 fi
 
 FORMULA_PATH="${1:-$ROOT/.local/releases/${TELEC_RELEASE_TAG}/telec.rb}"
-README_PATH="${2:-}"
 VALIDATION_TAP_NAME="${TELEC_HOMEBREW_VALIDATION_TAP_NAME:-local/telec-audit}"
 TMP_ROOT="$ROOT/.local/tmp"
 
@@ -31,10 +30,6 @@ trap cleanup EXIT
 
 mkdir -p "$TMP_TAP_DIR/Formula"
 cp "$FORMULA_PATH" "$TMP_TAP_DIR/Formula/${TELEC_APP_NAME}.rb"
-
-if [[ -n "$README_PATH" && -f "$README_PATH" ]]; then
-  cp "$README_PATH" "$TMP_TAP_DIR/README.md"
-fi
 
 (
   cd "$TMP_TAP_DIR"
