@@ -78,7 +78,7 @@ jobs:
       - build
     runs-on: macos-14
     env:
-      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
       HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
     steps:
       - uses: actions/checkout@v5
@@ -112,7 +112,7 @@ jobs:
             .local/releases/${{ github.ref_name }}/checksums.txt
             .local/releases/${{ github.ref_name }}/telec.rb
       - run: npm publish --access public --provenance
-      - if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
+      - if: ${{ env.HOMEBREW_TAP_GITHUB_TOKEN != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -121,7 +121,7 @@ jobs:
           TAP_REPO="${HOMEBREW_TAP_REPOSITORY:-$TELEC_HOMEBREW_TAP_REPOSITORY_DEFAULT}"
           TAP_DIR="$RUNNER_TEMP/homebrew-tap"
 
-          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${TAP_REPO}.git" "$TAP_DIR"
+          git clone "https://x-access-token:${HOMEBREW_TAP_GITHUB_TOKEN}@github.com/${TAP_REPO}.git" "$TAP_DIR"
           mkdir -p "$TAP_DIR/Formula"
           cp ".local/releases/${GITHUB_REF_NAME}/${TELEC_APP_NAME}.rb" "$TAP_DIR/Formula/${TELEC_APP_NAME}.rb"
 
